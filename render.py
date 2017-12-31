@@ -20,7 +20,7 @@ a_inc = radians(360/azimuths)
 elevations = 9 # number of elevations
 e_inc = radians(10) # 5 degrees
 
-imsize = 96 # size of output image
+imsize = 48 # size of output image
 
 def process_greeble(greeble, root, f):
 	# delete default cube
@@ -78,7 +78,7 @@ def process_greeble(greeble, root, f):
 scene = bpy.data.scenes.new("Scene")
 
 # rendered images should be square
-bpy.context.scene.render.resolution_x = imsize
+bpy.context.scene.render.resolution_x = imsize * 2 # not sure why we have to double imsize
 bpy.context.scene.render.resolution_y = bpy.context.scene.render.resolution_x
 
 # greeble object
