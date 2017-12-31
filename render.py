@@ -7,15 +7,18 @@ Run as: blender --background --python render.py
 import bpy
 import os
 import mathutils
-from math import pi
+from math import radians
 
 # paths
 orig_path = os.getcwd() + "/Greebles-2-0-symmetric/Greebles3DS"
 render_path = os.getcwd() + "/images/"
 
 r = 15  # radius of camera orbit
-azimuths = 1
-a_inc = 2*pi/azimuths
+azimuths = 18
+a_inc = radians(360/azimuths)
+
+elevations = 9 # number of elevations
+e_inc = radians(10) # 5 degrees
 
 imsize = 96 # size of output image
 
@@ -43,19 +46,6 @@ def process_greeble(greeble, root, f):
 	bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
 	greeble.location = (0, 0, 0)
 
-	'''
-	# set lamp location
-	lamp = bpy.data.objects["Lamp"]
-	lamp.location = (5, -5.0, -10)
-
-	lamp_data = bpy.data.lamps.new(name="New Lamp", type='POINT')
-	lamp_object = bpy.data.objects.new(name="New Lamp", object_data=lamp_data)
-	scene.objects.link(lamp_object)
-	lamp_object.location = (5.0, 5.0, -10)
-	lamp_object.select = True
-	scene.objects.active = lamp_object
-	'''
-
 	# set camera location
 	camera = bpy.data.objects["Camera"]
 	camera.location = (0, -r, 0)
@@ -65,13 +55,22 @@ def process_greeble(greeble, root, f):
 	rot_quat = direction.to_track_quat('-Z', 'Y')
 	camera.rotation_euler = rot_quat.to_euler()
 
-	# rotate greeble (to simulate camera orbit)
+	# create empty (for camera orbit)     
+	b_empty = bpy.data.objects.new("Empty", None)
+	b_empty.location = (0, 0, 0)
+	camera.parent = b_empty
+
+	# rotate camera
 	for a in range(azimuths):
-		# rotate
+		# rotate greeble (to simulate camera orbit)
 		greeble.rotation_euler = (0, 0, a * a_inc)
-		# render
-		bpy.context.scene.render.filepath = render_path + f[:-4] + "_a" + str(a) + ".png"
-		bpy.ops.render.render(write_still=True)
+		for e in range(elevations):
+			mat_rot = mathutils.Matrix.Rotation(e_inc*(e-elevations//2), 4, 'X')
+			b_empty.matrix_world = mat_rot
+			bpy.context.scene.update() 
+			# render
+			bpy.context.scene.render.filepath = render_path + f[:-4] + "_a" + str(a) + "_e" + str(e) + ".png"
+			bpy.ops.render.render(write_still=True)
 	
 	return greeble
 
