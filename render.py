@@ -14,6 +14,7 @@ orig_path = os.getcwd() + "/Greebles-2-0-symmetric/Greebles3DS"
 render_path = os.getcwd() + "/images/"
 
 r = 15  # radius of camera orbit
+N = 5  # scale of background image
 azimuths = 18
 a_inc = radians(360/azimuths)
 
@@ -21,6 +22,22 @@ elevations = 9 # number of elevations
 e_inc = radians(10) # 5 degrees
 
 imsize = 48 # size of output image
+
+# add background: 
+# plane generation code adapted from http://wiki.theprovingground.org/blender-py-mesh#toc2
+plane_mesh = bpy.data.meshes.new("Plane")
+plane = bpy.data.objects.new("Plane", plane_mesh)
+plane_vertices = [(-N*r, 0, -N*r), (-N*r, 0, N*r), (N*r, 0, -N*r), (N*r, 0, N*r)]
+plane_faces = [(0, 1, 3, 2)]
+plane.location = (0, 0, 0)
+bpy.context.scene.objects.link(plane)
+plane_mesh.from_pydata(plane_vertices, [], plane_faces)
+plane_mesh.update(calc_edges=True)
+
+# set to white
+bkg_material = bpy.data.materials.new(name="bkg_material")
+bkg_material.diffuse_color = (255, 255, 255) # set to white
+plane.data.materials.append(bkg_material)
 
 def process_greeble(greeble, root, f):
 	# delete default cube
@@ -39,7 +56,7 @@ def process_greeble(greeble, root, f):
 	bpy.ops.import_scene.autodesk_3ds(filepath = fpath)
 
 	# recenter
-	# on import, all previously selected objects are deselected and  the newly imported object is selected
+	# on import, all previously selected objects are deselected and the newly imported object is selected
 	greeble = bpy.context.selected_objects[0]
 	new_origin = (0, 0, greeble.dimensions[2]/2)  # place center at median of greeble height (z-dimension)
 	bpy.context.scene.cursor_location = new_origin
@@ -51,14 +68,23 @@ def process_greeble(greeble, root, f):
 	camera.location = (0, -r, 0)
 
 	# point camera to origin
-	direction = -mathutils.Vector(camera.location)
-	rot_quat = direction.to_track_quat('-Z', 'Y')
-	camera.rotation_euler = rot_quat.to_euler()
+	cam_direction = -mathutils.Vector(camera.location)
+	cam_rot_quat = cam_direction.to_track_quat('-Z', 'Y')
+	camera.rotation_euler = cam_rot_quat.to_euler()
 
+	# set plane location
+	plane.location = (0, N*r, 0)
+	
+	# point plane to origin
+	bkg_direction = -mathutils.Vector(plane.location)
+	bkg_rot_quat = bkg_direction.to_track_quat('Y', 'X')
+	plane.rotation_euler = bkg_rot_quat.to_euler()
+	
 	# create empty (for camera orbit)     
 	b_empty = bpy.data.objects.new("Empty", None)
 	b_empty.location = (0, 0, 0)
 	camera.parent = b_empty
+	plane.parent = b_empty
 
 	# rotate camera
 	for a in range(azimuths):
@@ -80,6 +106,7 @@ scene = bpy.data.scenes.new("Scene")
 # rendered images should be square
 bpy.context.scene.render.resolution_x = imsize * 2 # not sure why we have to double imsize
 bpy.context.scene.render.resolution_y = bpy.context.scene.render.resolution_x
+bpy.context.scene.render.alpha_mode = 'SKY'
 
 # greeble object
 greeble = None
