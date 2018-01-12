@@ -89,10 +89,6 @@ def process_greeble(greeble, root, f):
     render(greeble, f, "ambient")
     world.light_settings.use_environment_light = False
 
-    # lamp setup
-    # spot_lamp = add_lamp("Lamp", 'POINT')
-    # spot_lamp.data.quadratic_attenuation = 0.2
-
     # create empty (for lamp orbit)
     b_empty = bpy.data.objects.new("Empty", None)
     b_empty.location = ORIGIN
