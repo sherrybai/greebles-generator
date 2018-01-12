@@ -1,119 +1,132 @@
-'''
-Generate greeble dataset
+# Generate greeble dataset
+#
+# Run as: blender --background --python render.py
 
-Run as: blender --background --python render.py
-'''
-
-import bpy
-import os
-import mathutils
+import bpy, os, mathutils, random
 from math import radians
 
 # paths
 orig_path = os.getcwd() + "/Greebles-2-0-symmetric/Greebles3DS"
 render_path = os.getcwd() + "/images/"
 
-r = 15  # radius of camera orbit
-N = 5  # scale of background image
-azimuths = 18
-a_inc = radians(360/azimuths)
+r = 15  # distance of camera to greeble
+# N = 5  # scale of background image
 
-elevations = 9 # number of elevations
-e_inc = radians(10) # 5 degrees
+# 80 greebles total, 5 lighting conditions
+POSES_PER_GREEBLE = 200
+ORIGIN = (0, 0, 0)
 
-imsize = 48 # size of output image
+imsize = 48  # size of output image
 
-# add background: 
-# plane generation code adapted from http://wiki.theprovingground.org/blender-py-mesh#toc2
-plane_mesh = bpy.data.meshes.new("Plane")
-plane = bpy.data.objects.new("Plane", plane_mesh)
-plane_vertices = [(-N*r, 0, -N*r), (-N*r, 0, N*r), (N*r, 0, -N*r), (N*r, 0, N*r)]
-plane_faces = [(0, 1, 3, 2)]
-plane.location = (0, 0, 0)
-bpy.context.scene.objects.link(plane)
-plane_mesh.from_pydata(plane_vertices, [], plane_faces)
-plane_mesh.update(calc_edges=True)
 
-# set to white
-bkg_material = bpy.data.materials.new(name="bkg_material")
-bkg_material.diffuse_color = (255, 255, 255) # set to white
-plane.data.materials.append(bkg_material)
+def render(greeble, f, lamp_type):
+    for i in range(POSES_PER_GREEBLE):
+        # rotate greeble randomly
+        greeble.rotation_euler = (random_angle(), random_angle(), random_angle())
+        bpy.context.scene.render.filepath = render_path + f[:-4] + "_" + lamp_type + "_" + str(i) + ".png"
+        bpy.ops.render.render(write_still=True)
+    return greeble
+
+
+def random_angle():
+    return radians(360 * random.random())
+
+
+def delete_obj(label):
+    obj = bpy.data.objects.get(label)
+    if obj is not None:
+        obj.select = True
+        bpy.ops.object.delete()
+
+
+def add_lamp(lamp_name, lamp_type, radius=r):
+    # adapted from Stack Overflow:
+    # https://stackoverflow.com/questions/17355617/can-you-add-a-light-source-in-blender-using-python
+    data = bpy.data.lamps.new(name=lamp_name, type=lamp_type)
+    object = bpy.data.objects.new(name=lamp_name, object_data=data)
+    bpy.context.scene.objects.link(object)
+    object.location = (0, 0, radius)
+    return object
+
+
+def point_to_origin(obj):
+    direction = -mathutils.Vector(obj.location)
+    rot_quat = direction.to_track_quat('-Z', 'Y')
+    obj.rotation_euler = rot_quat.to_euler()
+
 
 def process_greeble(greeble, root, f):
-	# delete default cube
-	cube = bpy.data.objects.get("Cube")
-	if cube is not None:
-		cube.select = True
-		bpy.ops.object.delete()
-	
-	# delete previous greeble
-	if greeble is not None:
-		greeble.select = True
-		bpy.ops.object.delete()
+    delete_obj("Cube")  # delete default cube
+    delete_obj("Lamp")  # delete default lamp
 
-	# import .3ds file
-	fpath = os.path.join(root, f)
-	bpy.ops.import_scene.autodesk_3ds(filepath = fpath)
+    # delete previous greeble
+    if greeble is not None:
+        greeble.select = True
+        bpy.ops.object.delete()
 
-	# recenter
-	# on import, all previously selected objects are deselected and the newly imported object is selected
-	greeble = bpy.context.selected_objects[0]
-	new_origin = (0, 0, greeble.dimensions[2]/2)  # place center at median of greeble height (z-dimension)
-	bpy.context.scene.cursor_location = new_origin
-	bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
-	greeble.location = (0, 0, 0)
+    # import .3ds file
+    fpath = os.path.join(root, f)
+    bpy.ops.import_scene.autodesk_3ds(filepath=fpath)
 
-	# set camera location
-	camera = bpy.data.objects["Camera"]
-	camera.location = (0, -r, 0)
+    # recenter
+    # on import, all previously selected objects are deselected and the newly imported object is selected
+    greeble = bpy.context.selected_objects[0]
+    new_origin = (0, 0, greeble.dimensions[2] / 2)  # place center at median of greeble height (z-dimension)
+    bpy.context.scene.cursor_location = new_origin
+    bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+    greeble.location = ORIGIN
 
-	# point camera to origin
-	cam_direction = -mathutils.Vector(camera.location)
-	cam_rot_quat = cam_direction.to_track_quat('-Z', 'Y')
-	camera.rotation_euler = cam_rot_quat.to_euler()
+    # set camera location
+    camera = bpy.data.objects["Camera"]
+    camera.location = (0, -r, 0)
 
-	# set plane location
-	plane.location = (0, N*r, 0)
-	
-	# point plane to origin
-	bkg_direction = -mathutils.Vector(plane.location)
-	bkg_rot_quat = bkg_direction.to_track_quat('Y', 'X')
-	plane.rotation_euler = bkg_rot_quat.to_euler()
-	
-	# create empty (for camera orbit)     
-	b_empty = bpy.data.objects.new("Empty", None)
-	b_empty.location = (0, 0, 0)
-	camera.parent = b_empty
-	plane.parent = b_empty
+    # point camera to origin
+    point_to_origin(camera)
 
-	# rotate camera
-	for a in range(azimuths):
-		# rotate greeble (to simulate camera orbit)
-		greeble.rotation_euler = (0, 0, a * a_inc)
-		for e in range(elevations):
-			mat_rot = mathutils.Matrix.Rotation(e_inc*(e-elevations//2), 4, 'X')
-			b_empty.matrix_world = mat_rot
-			bpy.context.scene.update() 
-			# render
-			bpy.context.scene.render.filepath = render_path + f[:-4] + "_a" + str(a) + "_e" + str(e) + ".png"
-			bpy.ops.render.render(write_still=True)
-	
-	return greeble
+    # ambient lighting setup
+    world = bpy.context.scene.world
+    world.light_settings.use_environment_light = True
+    render(greeble, f, "ambient")
+    world.light_settings.use_environment_light = False
+
+    # lamp setup
+    # spot_lamp = add_lamp("Lamp", 'POINT')
+    # spot_lamp.data.quadratic_attenuation = 0.2
+
+    # create empty (for lamp orbit)
+    b_empty = bpy.data.objects.new("Empty", None)
+    b_empty.location = ORIGIN
+
+    # render for four different lighting configs
+    n_lamps = 4
+    for i in range(n_lamps):
+        lamp = add_lamp("Lamp"+str(i), 'POINT')
+        lamp.parent = b_empty
+        mat_rot = mathutils.Euler((random_angle(), random_angle(), random_angle()), 'XYZ')
+        mat_rot = mat_rot.to_matrix().to_4x4()
+        b_empty.matrix_world = mat_rot
+        render(greeble, f, str(i))
+
+    for i in range(n_lamps):
+        delete_obj("Lamp"+str(i))
+
+    return greeble
+
 
 # create a scene
 scene = bpy.data.scenes.new("Scene")
 
 # rendered images should be square
-bpy.context.scene.render.resolution_x = imsize * 2 # not sure why we have to double imsize
+bpy.context.scene.render.resolution_x = imsize * 2  # not sure why we have to double imsize
 bpy.context.scene.render.resolution_y = bpy.context.scene.render.resolution_x
 bpy.context.scene.render.alpha_mode = 'SKY'
 
 # greeble object
-greeble = None
+curr_greeble = None
 
 # complete for every .3ds file
 for root, dirs, files in os.walk(orig_path):
-	# pick out 3DS files
-	filtered = list(filter(lambda x: x[-4:].lower() == ".3ds", files))
-	for f in filtered:
-		greeble = process_greeble(greeble, root, f)
+    # pick out 3DS files
+    filtered = list(filter(lambda x: x[-4:].lower() == ".3ds", files))
+    for f in filtered:
+        curr_greeble = process_greeble(curr_greeble, root, f)
