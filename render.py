@@ -2,7 +2,10 @@
 #
 # Run as: blender --background --python render.py
 
-import bpy, os, mathutils, random
+import bpy
+import os
+import mathutils
+import random
 from math import radians
 
 # paths
@@ -19,17 +22,8 @@ ORIGIN = (0, 0, 0)
 imsize = 48  # size of output image
 
 
-def render(greeble, f, lamp_type):
-    for i in range(POSES_PER_GREEBLE):
-        # rotate greeble randomly
-        greeble.rotation_euler = (random_angle(), random_angle(), random_angle())
-        bpy.context.scene.render.filepath = render_path + f[:-4] + "_" + lamp_type + "_" + str(i) + ".png"
-        bpy.ops.render.render(write_still=True)
-    return greeble
-
-
-def random_angle():
-    return radians(360 * random.random())
+def random_angle(min_angle=0, max_angle=360):
+    return radians((max_angle - min_angle) * random.random() + min_angle)
 
 
 def delete_obj(label):
@@ -43,16 +37,33 @@ def add_lamp(lamp_name, lamp_type, radius=r):
     # adapted from Stack Overflow:
     # https://stackoverflow.com/questions/17355617/can-you-add-a-light-source-in-blender-using-python
     data = bpy.data.lamps.new(name=lamp_name, type=lamp_type)
-    object = bpy.data.objects.new(name=lamp_name, object_data=data)
-    bpy.context.scene.objects.link(object)
-    object.location = (0, 0, radius)
-    return object
+    lamp_object = bpy.data.objects.new(name=lamp_name, object_data=data)
+    bpy.context.scene.objects.link(lamp_object)
+    lamp_object.location = (0, 0, radius)
+    return lamp_object
 
 
 def point_to_origin(obj):
     direction = -mathutils.Vector(obj.location)
     rot_quat = direction.to_track_quat('-Z', 'Y')
     obj.rotation_euler = rot_quat.to_euler()
+
+
+def render(greeble, f, lamp_type, lamp_empty=None):
+    for i in range(POSES_PER_GREEBLE):
+        # rotate greeble randomly
+        # greeble.rotation_euler = (random_angle(), random_angle(), random_angle())
+        greeble.rotation_euler = (0, 0, random_angle())
+
+        # rotate lamp randomly
+        if lamp_empty is not None:
+            mat_rot = mathutils.Euler((random_angle(), random_angle(), random_angle()), 'XYZ')
+            mat_rot = mat_rot.to_matrix().to_4x4()
+            lamp_empty.matrix_world = mat_rot
+
+        bpy.context.scene.render.filepath = "{}{}_{}_{:03d}.png".format(render_path, f[:-4], lamp_type, i)
+        bpy.ops.render.render(write_still=True)
+    return greeble
 
 
 def process_greeble(greeble, root, f):
@@ -84,27 +95,25 @@ def process_greeble(greeble, root, f):
     point_to_origin(camera)
 
     # ambient lighting setup
-    world = bpy.context.scene.world
-    world.light_settings.use_environment_light = True
-    render(greeble, f, "ambient")
-    world.light_settings.use_environment_light = False
+    # world = bpy.context.scene.world
+    # world.light_settings.use_environment_light = True
+    # render(greeble, f, "ambient")
+    # world.light_settings.use_environment_light = False
 
     # create empty (for lamp orbit)
     b_empty = bpy.data.objects.new("Empty", None)
     b_empty.location = ORIGIN
 
-    # render for four different lighting configs
-    n_lamps = 4
-    for i in range(n_lamps):
-        lamp = add_lamp("Lamp"+str(i), 'POINT')
-        lamp.parent = b_empty
-        mat_rot = mathutils.Euler((random_angle(), random_angle(), random_angle()), 'XYZ')
-        mat_rot = mat_rot.to_matrix().to_4x4()
-        b_empty.matrix_world = mat_rot
-        render(greeble, f, str(i))
+    # top lamp
+    top_lamp = add_lamp("Top_Lamp", 'SPOT')
 
-    for i in range(n_lamps):
-        delete_obj("Lamp"+str(i))
+    # render for lamp configs
+    random_lamp = add_lamp("Random_Lamp", 'POINT')
+    random_lamp.parent = b_empty
+    render(greeble, f, "lamps", lamp_empty=b_empty)
+
+    delete_obj("Random_Lamp")
+    delete_obj("Top_Lamp")
 
     return greeble
 
