@@ -1,4 +1,4 @@
-# Generate greeble dataset
+# Generate Greeble dataset
 #
 # Run as: blender --background --python render.py
 
@@ -8,19 +8,19 @@ import mathutils
 import random
 from math import radians
 
+# adjustable parameters
+r = 15  # distance of camera to greeble
+set_type = "test" # options: "train", "test"
+imsize = 96  # size of output image
+num_imgs = 8000
+
 # paths
 orig_path = os.getcwd() + "/Greebles-2-0-symmetric/Greebles3DS"
 render_path = os.getcwd() + "/images/"
 
-r = 15  # distance of camera to greeble
-# N = 5  # scale of background image
-
-# 80 greebles total, 5 lighting conditions
-POSES_PER_GREEBLE = 200
+NUM_GREEBLES = 80
+POSES_PER_GREEBLE = num_imgs // 80
 ORIGIN = (0, 0, 0)
-
-imsize = 48  # size of output image
-
 
 def random_angle(min_angle=0, max_angle=360):
     return radians((max_angle - min_angle) * random.random() + min_angle)
@@ -52,9 +52,13 @@ def point_to_origin(obj):
 def render(greeble, f, lamp_type, lamp_empty=None):
     for i in range(POSES_PER_GREEBLE):
         # rotate greeble randomly
-        # greeble.rotation_euler = (random_angle(), random_angle(), random_angle())
-        greeble.rotation_euler = (0, 0, random_angle())
-
+        x_angle = random_angle(min_angle=-30, max_angle=30)
+        y_angle = random_angle(min_angle=-30, max_angle=30)
+        if set_type == "train":
+            greeble.rotation_euler = (0, 0, random_angle())
+        if set_type == "test":
+            greeble.rotation_euler = (x_angle, y_angle, random_angle())
+                   
         # rotate lamp randomly
         if lamp_empty is not None:
             mat_rot = mathutils.Euler((random_angle(), random_angle(), random_angle()), 'XYZ')
@@ -93,12 +97,6 @@ def process_greeble(greeble, root, f):
 
     # point camera to origin
     point_to_origin(camera)
-
-    # ambient lighting setup
-    # world = bpy.context.scene.world
-    # world.light_settings.use_environment_light = True
-    # render(greeble, f, "ambient")
-    # world.light_settings.use_environment_light = False
 
     # create empty (for lamp orbit)
     b_empty = bpy.data.objects.new("Empty", None)
