@@ -8,7 +8,7 @@ Instructions:
  - Download the original symmetric Greebles meshes here: http://wiki.cnbc.cmu.edu/images/Greebles-2-0-symmetric.zip
  - Unzip in same directory as render.py.
 
-Run as: blender --background --python render.py
+Run as: `blender --background --python render.py`
 
 Adjustable parameters (top of render.py):
 - `r`: Distance of camera to greeble.
