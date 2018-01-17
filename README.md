@@ -11,7 +11,7 @@ Instructions:
 Run as: `blender --background --python render.py`
 
 Adjustable parameters (top of render.py):
-- `r`: Distance of camera to greeble.
+- `r`: Distance of camera to Greeble.
 - `set_type`: Which subset of dataset to generate. Set to "train" to generate upright Greebles (vertical rotation only); set to "test" to generate Greebles that can rotate along all three axes. ("Test" Greebles can only rotate from -30 to 30 degrees longitudinally and laterally.)
 - `imsize`: Size of output image, in pixels.
 - `num_imgs`: Number of images to produce.
